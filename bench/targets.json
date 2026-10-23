@@ -1,6 +1,6 @@
 {
 	"targets": [
-		{ "name": "Svelte / CF Workers", "base": "https://acn-newsroom-svelte.REPLACE-ME.workers.dev" },
+		{ "name": "Svelte / CF Workers", "base": "https://newsroom-svelte.krischan-balasbas.workers.dev" },
 		{ "name": "Next / Vercel", "base": "https://acn-newswire.vercel.app" },
 		{ "name": "Next / Netlify", "base": "https://portal.acnnewswire.com" }
 	],

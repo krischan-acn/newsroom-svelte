@@ -1,5 +1,7 @@
 # ACN Newsroom on SvelteKit (experiment)
 
+> **Parked on 2026-10-23.** Results, causes and the open fixes are in [docs/evaluation-2026-10-23.md](docs/evaluation-2026-10-23.md). Read that before resuming.
+
 A rewrite of the ACN Newswire newsroom (portal.acnnewswire.com) in SvelteKit 3 and Svelte 5, deployed to **Cloudflare Workers**. It exists to be measured against the live Next.js newsroom on Vercel and Netlify. It is not the production site.
 
 **Ported:** the site shell (top bar, main nav and mega menus, footer), the home page, and the press release page, including the infinite scroll. **Not ported:** company, events, news and search pages, so links to those 404 here. The employee A/B tool was deliberately left out.
