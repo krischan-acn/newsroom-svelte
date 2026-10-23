@@ -1,0 +1,10 @@
+node_modules
+/.svelte-kit
+/build
+/.wrangler
+.dev.vars*
+.env
+.env.*
+!.env.example
+# Benchmark output - commit a run deliberately with `git add -f` if it is worth keeping.
+/bench/results

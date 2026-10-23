@@ -1,0 +1,178 @@
+/*
+  The one global stylesheet: the Next app's globals.css, MainNav.css and
+  TopNav.css, which were three render-blocking files, in one.
+
+  Removed: the Google Fonts @import that loaded all nine Inter weights from a
+  second origin on top of the copy next/font already self-hosted. Inter is now
+  self-hosted once, as a single variable font (see +layout.svelte), so the
+  first paint waits on no third-party request at all.
+*/
+@import 'tailwindcss' theme(static);
+
+:root {
+	--background: #ffffff;
+	--foreground: #171717;
+	--nav-text-color: #000000;
+	--accent-color: #2088c9;
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--font-sans: 'Inter Variable', Helvetica, sans-serif;
+}
+
+body {
+	background: var(--background);
+	color: #000000;
+	font-family: 'Inter Variable', Helvetica, sans-serif;
+	letter-spacing: -0.3px;
+}
+
+@layer utilities {
+	/* scrollbar-width:none kills scrollWidth math in some browsers; use thin+transparent instead */
+	.scrollbar-hide {
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+	}
+	.scrollbar-hide::-webkit-scrollbar {
+		height: 0px;
+		width: 0px;
+	}
+	.scrollbar-hide::-webkit-scrollbar-button {
+		display: none;
+	}
+	.scrollbar-hide::-webkit-scrollbar-thumb {
+		background: transparent;
+	}
+	.scrollbar-hide::-webkit-scrollbar-track {
+		background: transparent;
+	}
+}
+
+/* ---- Buttons: the only button styling on the site (BIBLE rule 4) ---- */
+
+.button {
+	color: #ffffff;
+	background-color: #333333;
+	font-size: 14px;
+	padding: 6px 18px;
+}
+
+.button.alt {
+	color: #000000;
+	background-color: #eeeeee;
+	transition: all 0.08s ease-in-out;
+}
+
+.button.alt:hover {
+	background-color: #bbbbbb;
+}
+
+/* ---- Article body ---- */
+
+.article-body p {
+	color: #777777;
+	line-height: 1.7;
+	margin-bottom: 1.5rem;
+}
+
+.article-body strong {
+	color: #333333;
+}
+
+.article-body img {
+	border-radius: 0.5rem;
+	margin-left: auto;
+	margin-right: auto;
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+.article-body figcaption {
+	width: 70%;
+	margin-left: auto;
+	margin-right: auto;
+	text-align: center;
+	font-size: 12px;
+	color: #888888;
+	margin-top: 1rem;
+	margin-bottom: 1.5rem;
+}
+
+.article-body a {
+	color: #2088c9;
+	text-decoration: none;
+}
+
+.article-body a:hover {
+	text-decoration: underline;
+}
+
+/* ---- Main nav (was MainNav.css) ---- */
+
+.nav-link {
+	padding: 8px 10px;
+	font-size: 14px;
+	color: var(--nav-text-color);
+	transition: all 0.125s ease;
+}
+
+.nav-link:hover {
+	text-shadow: 0 0px 4px rgba(0, 0, 0, 0.3);
+}
+
+.nav-link.mega {
+	padding: 8px 2px 4px 2px;
+	margin-right: 12px;
+	border-bottom: 4px solid var(--background);
+	transition: all 0.125s ease;
+}
+
+.nav-link.mega:hover,
+.nav-link.mega.open {
+	border-bottom: 4px solid var(--accent-color);
+	text-shadow: 0 0 0 var(--background);
+}
+
+.dropdown-link {
+	color: var(--nav-text-color);
+	font-size: 14px;
+	transition: all 0.125s ease;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dropdown-link:hover {
+	color: var(--accent-color);
+}
+
+.dropdown-link.label {
+	font-weight: bold;
+	color: var(--accent-color);
+}
+
+/* ---- Top nav (was TopNav.css) ---- */
+
+.top-nav {
+	padding: 0px 16px;
+	background: #fafafa;
+	border-bottom: 1px solid #d9d9d9;
+	font-size: 14px;
+}
+
+.top-nav .nav-left {
+	align-items: center;
+	width: 150px;
+	gap: 8px;
+	border-right: 1px solid #d9d9d9;
+}
+
+.top-nav .global-dropdown {
+	cursor: pointer;
+	position: relative;
+	width: 150px;
+	z-index: 1;
+}

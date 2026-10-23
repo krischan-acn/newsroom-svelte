@@ -1,0 +1,19 @@
+// Cloudflare Workers configuration.
+//
+// Deliberately minimal: one Worker plus its static assets. No R2, KV, D1 or
+// Durable Objects - SvelteKit has no ISR, so there is no page store to host.
+// Page caching happens at the edge through the Cache API (src/hooks.server.ts).
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "acn-newsroom-svelte",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"observability": {
+		"enabled": true
+	}
+}

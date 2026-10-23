@@ -1,0 +1,122 @@
+// lib/server/news-list.ts
+// Lightweight list-feed fetcher for card rows on the home page.
+
+import type { NewApiArticle } from './acn-api.types';
+import { sanitizeText, sanitizeHeadline } from './sanitize';
+import { API_BASE, apiFetch, apiInit } from './api';
+
+// The list feeds read /api/Articles rather than /api/articles/homepage. As of
+// 2026-09-07 the homepage endpoint returns an empty array, which rendered the
+// hero and the news list blank, while /api/Articles paginates a full corpus and
+// carries two fields homepage omits (language, imageUrl). Both share the same
+// row shape, so mapArticle covers either one. Switch back if homepage is fixed
+// and starts returning a curated pool worth preferring.
+const ARTICLES_URL = `${API_BASE}/api/Articles`;
+const BY_INDUSTRY_URL = `${API_BASE}/api/Articles/by-industry`;
+const LOGO_BASE = 'https://www.acnnewswire.com/images/company/';
+const PHOTOS_BASE = 'https://photos.acnnewswire.com/';
+
+/** /api/Articles rejects Size above this with a 400. */
+const MAX_PAGE_SIZE = 100;
+
+export interface NewsListItem {
+  id: number;
+  headline: string;
+  dateTime: string;
+  description: string | null;
+  thumbImage: string | null;
+  logoSrc: string | null;
+  companyName: string;
+  companyId: number | null;
+  sector: string;
+  language: string | null;
+}
+
+function dedupeById(items: NewsListItem[]): NewsListItem[] {
+  const seen = new Set<number>();
+  return items.filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function mapArticle(a: NewApiArticle): NewsListItem {
+  const company = a.companies[0] ?? null;
+  const logoFilename = company?.logoFilename ?? company?.logoFileName ?? null;
+  const bigImage = a.images?.[0]?.bigImage;
+  return {
+    id: a.articleId,
+    headline: sanitizeHeadline(a.headline),
+    dateTime: a.publishDate,
+    description: sanitizeText(a.summary),
+    thumbImage: bigImage ? `${PHOTOS_BASE}${bigImage}` : null,
+    // These endpoints return companyId/logoFilename; the single-article endpoint
+    // returns companyID/logoFileName. Read both so the logo and the company link
+    // survive whichever casing the API hands back.
+    logoSrc: logoFilename ? `${LOGO_BASE}${logoFilename}` : null,
+    companyName: company?.companyName ?? '',
+    companyId: company?.companyId ?? company?.companyID ?? null,
+    sector: a.sectorName ?? '',
+    language: a.language ?? null,
+  };
+}
+
+/**
+ * Every list feed goes through here so a timeout or a dead host degrades to an
+ * empty feed instead of throwing through the render. These fetches previously
+ * had no try/catch at all, which was survivable only because an unreachable
+ * host was rare; with a 6s deadline it is a normal, expected outcome.
+ */
+async function getRows(url: string, revalidate = 3600): Promise<NewApiArticle[]> {
+  try {
+    const res = await apiFetch(url, apiInit({ next: { revalidate } }));
+    if (!res.ok) return [];
+    return (await res.json()) as NewApiArticle[];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchNewsList(page = 1, limit = 20): Promise<NewsListItem[]> {
+  const size = Math.min(limit, MAX_PAGE_SIZE);
+  const raw = await getRows(`${ARTICLES_URL}?Page=${page}&Size=${size}`);
+  return dedupeById(raw.map(mapArticle));
+}
+
+export async function fetchLatestNews(): Promise<NewsListItem[]> {
+  const raw = await getRows(`${ARTICLES_URL}?Page=1&Size=20`);
+  return dedupeById(raw.map(mapArticle));
+}
+
+/**
+ * `industry` here is a SECTOR TYPE — Technology, Business, Financial and the
+ * rest of the nine in the sector_type column of lib/sectors.ts — not one of the
+ * 76 industry names. Passing an industry name returns [] silently. Callers
+ * holding an industry should resolve it with taxonomy.sectorOf() first.
+ *
+ * The parameter is *required*: the endpoint 400s without it.
+ */
+export async function fetchArticlesByIndustry(
+  industry: string,
+  pageSize = 10,
+  page = 1,
+): Promise<NewsListItem[]> {
+  // A page past the last answers 404, which is "no rows" rather than an error.
+  const raw = await getRows(
+    `${BY_INDUSTRY_URL}?industry=${encodeURIComponent(industry)}&pageNumber=${page}&pageSize=${pageSize}`,
+  );
+  return dedupeById(raw.map(mapArticle));
+}
+
+// Fetches a pool, filters to articles that actually carry an image, returns up
+// to `n`. Requests a full page rather than the default 10 because only about a
+// fifth of rows have an image, so a small pool cannot fill five slides.
+// Note: filter on images[0].bigImage, not hasImage/imageUrl - those come back
+// false/null even on rows whose images[] is populated.
+export async function fetchHeroSlides(n = 5): Promise<NewsListItem[]> {
+  const raw = await getRows(`${ARTICLES_URL}?Page=1&Size=${MAX_PAGE_SIZE}`);
+  return dedupeById(
+    raw.filter(a => !!a.images?.[0]?.bigImage).slice(0, n).map(mapArticle),
+  );
+}
