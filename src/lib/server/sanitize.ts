@@ -80,6 +80,20 @@ const ARTICLE_ALLOWED_ATTR = [
 	'width', 'height', 'align', 'border', 'cellpadding', 'cellspacing',
 ];
 
+/**
+ * `//host/path` -> `https://host/path`.
+ *
+ * Older releases embed images and links protocol-relative. The Next app's
+ * DOMPurify pass kept them; allowProtocolRelative: false below would drop them,
+ * and the image or link would vanish from the body. Rewriting them to https
+ * first keeps them, and still lets the scheme allow-list judge the result.
+ * transformTags runs before the attribute filter, so this is seen by it.
+ */
+function httpsIfProtocolRelative(attribs: sanitizeHtml.Attributes, name: string): sanitizeHtml.Attributes {
+	const value = attribs[name]?.trim();
+	return value?.startsWith('//') ? { [name]: `https:${value}` } : {};
+}
+
 const BODY_OPTIONS: sanitizeHtml.IOptions = {
 	allowedTags: ARTICLE_ALLOWED_TAGS,
 	// `loading` is set by transformTags below, so it has to be allowed on img.
@@ -94,15 +108,15 @@ const BODY_OPTIONS: sanitizeHtml.IOptions = {
 	transformTags: {
 		// A release linking out in a new tab must not hand the opened page a
 		// handle on this one.
-		a: (tagName, attribs) => ({
-			tagName,
-			attribs:
-				attribs.target === '_blank'
-					? { ...attribs, rel: 'noopener noreferrer' }
-					: attribs,
-		}),
+		a: (tagName, attribs) => {
+			const out = { ...attribs, ...httpsIfProtocolRelative(attribs, 'href') };
+			return { tagName, attribs: out.target === '_blank' ? { ...out, rel: 'noopener noreferrer' } : out };
+		},
 		// Body images below the fold should not compete with the page's own.
-		img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, loading: 'lazy' } }),
+		img: (tagName, attribs) => ({
+			tagName,
+			attribs: { ...attribs, ...httpsIfProtocolRelative(attribs, 'src'), loading: 'lazy' },
+		}),
 	},
 };
 

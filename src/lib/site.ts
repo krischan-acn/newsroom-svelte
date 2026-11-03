@@ -13,6 +13,9 @@ export const SITE_URL = PUBLIC_SITE_URL;
 export const SITE_NAME = 'ACN Newswire';
 export const SITE_DESCRIPTION = 'The top Asian News Network for 20 years and counting.';
 
+/** The share image used when a page has none of its own (static/og-default.png). */
+export const DEFAULT_OG_IMAGE = { url: `${SITE_URL}/og-default.png`, width: 1200, height: 630 };
+
 /**
  * A JSON-LD <script> block, safe to drop into {@html}.
  *

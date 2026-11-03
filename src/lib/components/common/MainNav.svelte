@@ -53,6 +53,13 @@
 
 	const Menu = $derived(rendered ? MENUS[rendered] : null);
 
+	// Measure once on mount, as Next did: a page restored mid-scroll (back
+	// button, reload) should start with the compact padding, not wait for the
+	// first scroll event.
+	$effect(() => {
+		scrolled = window.scrollY > 16;
+	});
+
 	function open(menu: MenuKey) {
 		clearTimeout(closeTimer);
 		rendered = menu;
@@ -123,6 +130,10 @@
 							aria-expanded={item.menu ? expanded && rendered === item.menu : undefined}
 						>
 							{item.label}
+							{#if item.menu}
+								<!-- Next's spacer after dropdown items: a space inside ml-1, ~8px. Kept so the bar's spacing matches. -->
+								<span class="ml-1 inline-block">{' '}</span>
+							{/if}
 						</a>
 					{/each}
 				</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '#lib/site.ts';
+	import { DEFAULT_OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '#lib/site.ts';
 	import HomeHero from '#lib/components/features/home/HomeHero.svelte';
 	import EventsRow from '#lib/components/features/home/EventsRow.svelte';
 	import FeaturedReleases from '#lib/components/features/home/FeaturedReleases.svelte';
@@ -17,6 +17,11 @@
 	<meta property="og:description" content={SITE_DESCRIPTION} />
 	<meta property="og:url" content="{SITE_URL}/" />
 	<meta name="twitter:card" content="summary_large_image" />
+	<!-- Next declared a large-image card here with no image to show. -->
+	<meta property="og:image" content={DEFAULT_OG_IMAGE.url} />
+	<meta property="og:image:width" content={String(DEFAULT_OG_IMAGE.width)} />
+	<meta property="og:image:height" content={String(DEFAULT_OG_IMAGE.height)} />
+	<meta name="twitter:image" content={DEFAULT_OG_IMAGE.url} />
 </svelte:head>
 
 <main>

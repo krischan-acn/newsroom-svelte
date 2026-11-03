@@ -43,7 +43,13 @@ type ApiInit = RequestInit & { next?: { revalidate?: number } };
 interface Entry {
 	status: number;
 	body: string;
-	expires: number;
+	/**
+	 * When it was fetched. Freshness is judged per CALLER, from its own
+	 * revalidate hint: the hero (3600s) and the infinite scroll's next-release
+	 * pool (300s) ask for the same /api/Articles URL, and a stored expiry would
+	 * hand whichever caller came second the first one's lifetime.
+	 */
+	fetchedAt: number;
 }
 
 const store = new Map<string, Entry>();
@@ -68,14 +74,17 @@ function remember(url: string, entry: Entry) {
 	}
 }
 
+function ttlMs(init: ApiInit): number {
+	return (init.next?.revalidate ?? DEFAULT_TTL_S) * 1000;
+}
+
 async function load(url: string, init: ApiInit): Promise<Entry> {
-	const { next, ...requestInit } = init;
-	const ttl = (next?.revalidate ?? DEFAULT_TTL_S) * 1000;
+	const { next: _next, ...requestInit } = init;
 	const res = await fetch(url, {
 		...requestInit,
 		headers: { Accept: 'application/json', ...requestInit.headers }
 	});
-	const entry: Entry = { status: res.status, body: await res.text(), expires: Date.now() + ttl };
+	const entry: Entry = { status: res.status, body: await res.text(), fetchedAt: Date.now() };
 	if (cacheable(res.status)) remember(url, entry);
 	return entry;
 }
@@ -86,7 +95,7 @@ async function load(url: string, init: ApiInit): Promise<Entry> {
  */
 export async function apiFetch(url: string, init: ApiInit = {}): Promise<Response> {
 	const cached = store.get(url);
-	if (cached && cached.expires > Date.now()) return toResponse(cached);
+	if (cached && Date.now() - cached.fetchedAt < ttlMs(init)) return toResponse(cached);
 
 	let pending = inFlight.get(url);
 	if (!pending) {

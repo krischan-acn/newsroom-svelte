@@ -74,7 +74,10 @@
 								</div>
 							</div>
 						{:else}
-							<div class="mb-4" style="width: 200px; height: 200px"></div>
+							<!-- Nothing at all: Next drew the empty box inside the logo container (160px wide, p-6), so the card is 160px, not 200px. -->
+							<div class="mb-4 flex items-start justify-center overflow-hidden p-6" style="width: 160px; height: 200px">
+								<div style="width: 200px; height: 200px"></div>
+							</div>
 						{/if}
 
 						<div class="overflow-hidden" style:height="250px" style:width={width}>

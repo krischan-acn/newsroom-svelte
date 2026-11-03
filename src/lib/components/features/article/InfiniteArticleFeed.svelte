@@ -79,7 +79,12 @@
 			}))
 		].filter((s): s is { el: HTMLElement; path: string; title: string } => s.el !== null);
 
-		if (sections.length < 2) return;
+		// Watch even when the first release is the only one. Readers arrive on the
+		// bare /article/<id> (every home and list link uses it), and the Next app
+		// moved the address bar onto the canonical path as soon as the page loaded
+		// (decision 0008). Waiting for a second release left the short URL in place
+		// - for good, when there was no next release.
+		if (sections.length === 0) return;
 
 		const visible = new Set<Element>();
 		let current = '';
