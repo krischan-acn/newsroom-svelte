@@ -70,3 +70,24 @@ Redeploying both Next hosts from current `main` fixed real problems that the sta
 1. Read `README.md` (how to run, deploy and benchmark).
 2. Make the three fixes above, then re-run `npm run bench` and Lighthouse against the same targets.
 3. Check the Workers plan. Decision 0009 in the ACN knowledge base notes the free plan's 10 ms CPU limit per request. Uncached renders worked during this test, but it was not measured.
+
+## Update, 2026-11-03: unparked, ported in full
+
+The rest of the site was ported to parity with the Next app (`docs/parity.md` lists every intentional difference), with Cloudflare as the target. What changed against this write-up:
+
+**A correction.** "Escaped JSON-LD", listed above as a SvelteKit win, wasn't true. `jsonLdScript()` replaced `<` with `'<'`, which in a JS string *is* `<`, so nothing was escaped. It's fixed now (`'\\u003c'`), and confirmed in the rendered HTML.
+
+**Two deploy blockers this test never hit**, because `bench` only fetched full pages and never deployed twice:
+- **The cache key mixed pages with navigation data.** SvelteKit strips `/__data.json` from `event.url`, which the cache was keyed on. A hover-preload could store JSON under a page's key, and the next reader would get raw JSON. The key is now built from the raw request URL.
+- **Cached pages outlived deploys; their scripts didn't.** After a deploy, cached HTML pointed at hashed files that no longer exist, so pages would run without JavaScript for up to a day. The key now includes the build version, so each deploy starts with a fresh cache, like a Netlify or Vercel purge.
+
+Tracking parameters (`utm_*`, `fbclid`, and so on) are also dropped from the key now.
+
+**The three fixes:**
+1. **Custom Worker entry: tried, removed.** Two findings:
+   - The Cloudflare adapter writes its generated worker to wrangler's `main` on every build, so a hand-written entry there is overwritten. It would need a second, adapter-only wrangler config (adapter option `config`).
+   - wrangler inlined the "lazy" import of SvelteKit at the top level, so `server.init()` still ran when each isolate started.
+
+   The hook already answers hits before any load function or render runs. What's left is SvelteKit's startup per isolate. Making that lazy means uploading SvelteKit as a separate module (wrangler `find_additional_modules`). Do it only if the CPU numbers on the real domain say cold starts matter.
+2. **`inlineStyleThreshold`: done.** The layout stylesheet is inlined (about 50 KB raw, 12 KB compressed). The CSP already allowed inline styles, and no hashes are added.
+3. **Profiling: not done yet.** It needs the real API and a custom domain; the API host is unreachable from the environment this was built in. It's part of the cutover gate in `docs/cutover.md`.
