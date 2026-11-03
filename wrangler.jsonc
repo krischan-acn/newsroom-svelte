@@ -6,9 +6,10 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "acn-newsroom-svelte",
-	// worker/index.ts answers fresh cache hits, then hands everything else to the
-	// worker the Cloudflare adapter generates (.svelte-kit/cloudflare/_worker.js).
-	"main": "worker/index.ts",
+	// The adapter WRITES its generated worker to this path on every build, so a
+	// hand-written entry cannot live here (tried 2026-11-03; see
+	// docs/evaluation-2026-10-23.md, "Fix 1").
+	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2026-10-01",
 	"compatibility_flags": ["nodejs_compat"],
 	"assets": {

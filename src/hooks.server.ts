@@ -36,6 +36,7 @@ import {
 	withHeaders
 } from '#lib/server/edge-cache.ts';
 import type { Handle } from '@sveltejs/kit/hooks';
+import { version } from '$app/env';
 // The adapter hands SvelteKit no `platform` object, so the Workers runtime is
 // reached directly: `caches` is a Workers global, and waitUntil keeps the
 // background store/refresh alive after the response has gone. In local dev
@@ -100,7 +101,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Keyed on the URL alone: no page here varies by cookie or header.
-	const key = cacheKey(event.request);
+	const key = cacheKey(event.request, version);
 	const hit = await cache.match(key);
 
 	if (hit) {

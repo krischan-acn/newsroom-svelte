@@ -1,0 +1,68 @@
+<!--
+  features/events/EventStatusPill.svelte - ported from the Next app's
+  components/features/events/EventStatusPill.tsx.
+
+  The compact form of the countdown, for listing rows: "Opens in 6 days",
+  "Happening now", "Ended". Client-side for the same reason as
+  EventCountdown - the day count depends on the visitor's clock, and the
+  listing is cached, so a server-rendered figure would go stale.
+-->
+<script lang="ts">
+	import { eventPhase } from './event-date';
+
+	interface Props {
+		startDate: string;
+		endDate: string;
+	}
+
+	let { startDate, endDate }: Props = $props();
+
+	let now = $state<number | null>(null);
+
+	$effect(() => {
+		now = Date.now();
+		// A minute is plenty here; the seconds live on the event page itself.
+		const id = setInterval(() => (now = Date.now()), 60_000);
+		return () => clearInterval(id);
+	});
+
+	function untilLabel(ms: number): string {
+		const days = Math.floor(ms / 86_400_000);
+		if (days >= 1) return `Opens in ${days} day${days === 1 ? '' : 's'}`;
+
+		const hours = Math.floor(ms / 3_600_000);
+		if (hours >= 1) return `Opens in ${hours} hour${hours === 1 ? '' : 's'}`;
+
+		const minutes = Math.max(1, Math.floor(ms / 60_000));
+		return `Opens in ${minutes} min`;
+	}
+
+	const phase = $derived(now === null ? null : eventPhase(startDate, endDate, now));
+</script>
+
+{#if now === null}
+	<!-- Reserve the line's height before mount so the row does not jump. -->
+	<span class="inline-block h-[18px] w-24" aria-hidden="true"></span>
+{:else if phase === 'ended'}
+	<span
+		class="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500"
+	>
+		Ended
+	</span>
+{:else if phase === 'live'}
+	<span
+		class="inline-flex items-center gap-1.5 rounded border border-[#2088c9]/30 bg-[#2088c9]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#1a6d9f]"
+	>
+		<span class="relative flex h-1.5 w-1.5" aria-hidden="true">
+			<span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2088c9] opacity-75"></span>
+			<span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#2088c9]"></span>
+		</span>
+		Happening now
+	</span>
+{:else}
+	<span
+		class="inline-flex items-center rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600"
+	>
+		{untilLabel(new Date(startDate).getTime() - now)}
+	</span>
+{/if}

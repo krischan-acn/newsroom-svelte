@@ -1,14 +1,12 @@
 // lib/server/edge-cache.ts
 //
-// The edge cache's shared pieces: how a request maps to a cache key, and how a
-// stored copy is turned back into a response. Used by two callers:
+// The edge cache's pieces: how a request maps to a cache key, and how a stored
+// copy is turned back into a response. src/hooks.server.ts carries the cache
+// out with these.
 //
-//   - src/worker.ts answers FRESH hits before SvelteKit is even loaded.
-//   - src/hooks.server.ts does everything else: misses, stale hits and the
-//     background refresh, storing what it renders.
-//
-// Pure on purpose: no SvelteKit imports ($app/*), so the Worker entry can use
-// it without pulling in the app it is trying not to start.
+// Pure on purpose: no SvelteKit imports ($app/*). If a custom Worker entry ever
+// answers hits before SvelteKit starts (docs/evaluation-2026-10-23.md, "Fix
+// 1"), it reuses this module unchanged.
 
 /** Bookkeeping kept on the stored copy and stripped before it is served. */
 export const STORED_AT = 'x-edge-stored-at';
@@ -35,12 +33,21 @@ const TRACKING_PARAM =
  * the page's key, so the next reader to open the page got raw JSON (and a
  * navigation could get HTML where it expected JSON). The raw URL keeps the two
  * apart, and lets navigations hit the cache too.
+ *
+ * `buildVersion` is SvelteKit's `version` from $app/environment (see below).
  */
-export function cacheKey(request: Request): Request {
+export function cacheKey(request: Request, buildVersion: string): Request {
 	const url = new URL(request.url);
 	for (const name of [...url.searchParams.keys()]) {
 		if (TRACKING_PARAM.test(name)) url.searchParams.delete(name);
 	}
+	// Cached pages outlive a deploy; the files they point at do not. Each build
+	// names its scripts by content hash and the previous build's files are gone
+	// once a new version is live, so a page cached before a deploy would load
+	// without its JavaScript for up to a day. Netlify and Vercel purge their CDN
+	// on deploy; here, putting the build version in the key does the same - a
+	// new deploy simply never looks at the old entries, which age out on their own.
+	url.searchParams.set('__build', buildVersion);
 	url.searchParams.sort();
 	url.hash = '';
 	return new Request(url.toString(), { method: 'GET' });

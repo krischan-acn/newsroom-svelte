@@ -32,7 +32,7 @@ Each Next file is one of:
 
 - **Images are served at their original size.** next/image resized and converted them. On Cloudflare that needs Image Transformations on a custom domain; not set up.
 - **No loading skeletons.** `loading.tsx`, `Skeleton`, `NavPending` and `HomeSkeletons` are replaced by a thin progress bar during client navigation (`src/routes/+layout.svelte`). Pages arrive as complete HTML, because SvelteKit fills streamed data in on the client, so crawlers would have seen skeletons.
-- **Caching:** ISR is replaced by the edge cache in `src/hooks.server.ts` + `worker/index.ts`. Pages are fresh for 1 h and served stale for up to 24 h while refreshing. API responses are also kept in memory with stale-if-error (`src/lib/server/api.ts`).
+- **Caching:** ISR is replaced by the edge cache in `src/hooks.server.ts`. The cache key includes the build version, so a deploy starts with a fresh cache, as a Netlify or Vercel deploy purges theirs. Pages are fresh for 1 h and served stale for up to 24 h while refreshing. API responses are also kept in memory with stale-if-error (`src/lib/server/api.ts`).
 - **Prefetching:** next/link's viewport prefetch is replaced by SvelteKit's hover preload (`data-sveltekit-preload-data="hover"`).
 - **Fonts:** one self-hosted variable Inter, preloaded. Next loaded Inter twice: a render-blocking Google Fonts `@import` plus next/font.
 - **The stylesheet is inlined into the HTML** (`inlineStyleThreshold`), because SvelteKit linked it after its script preloads.
@@ -53,6 +53,7 @@ Each Next file is one of:
 - **Paging parameters are NaN-safe** (`?page=abc` → page 1) and `/news?limit` is clamped to the API's cap of 100. Next sent `Page=NaN` to the API and could never show "Next" above 100.
 - **Search, empty state:** bare `/search` (or only unrecognised `?sec=` values) shows 0 results. Next's total heuristic claimed 21 ("Showing 0 of 21 results", "Page 1 of 2" over an empty list).
 - **Search sidebar:** a second tick while the first is still loading builds on the first. Next rebuilt the URL from the not-yet-updated props and dropped the first tick. Applying a filter moves keyboard focus to the page (SvelteKit 3's `goto` has no keep-focus option); Next kept focus on the checkbox.
+- **Event pages:** the tab title ends in "| ACN Newswire" once. Next's event detail and event press-releases pages added it twice. When the API is down, an unknown event id returns an uncached 503 instead of a 404, the same rule as company pages.
 - **A null event photo renders no image**, not a broken one (Next asserted it non-null).
 - **The share bar shares the canonical URL**, not whatever was in the address bar when it mounted. In the infinite feed, Next's could be the previous release's URL.
 - **The infinite scroll updates the tab title**, finds the next release among the latest 100 releases and the company archive (Next: the latest 20, in the browser), and switches the URL when a release scrolls into view rather than when it is fetched. These are the fixes the 2026-10-22 research note asked for.
