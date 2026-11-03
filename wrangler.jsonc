@@ -6,7 +6,9 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "acn-newsroom-svelte",
-	"main": ".svelte-kit/cloudflare/_worker.js",
+	// worker/index.ts answers fresh cache hits, then hands everything else to the
+	// worker the Cloudflare adapter generates (.svelte-kit/cloudflare/_worker.js).
+	"main": "worker/index.ts",
 	"compatibility_date": "2026-10-01",
 	"compatibility_flags": ["nodejs_compat"],
 	"assets": {

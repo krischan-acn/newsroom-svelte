@@ -25,6 +25,16 @@
 
 import type { RequestEvent } from '@sveltejs/kit';
 import { SITE_URL } from '#lib/site.ts';
+import {
+	BROWSER_CACHE,
+	FRESH_FOR,
+	STORED_AT,
+	cacheKey,
+	edgeCache,
+	freshness,
+	served,
+	withHeaders
+} from '#lib/server/edge-cache.ts';
 import type { Handle } from '@sveltejs/kit/hooks';
 // The adapter hands SvelteKit no `platform` object, so the Workers runtime is
 // reached directly: `caches` is a Workers global, and waitUntil keeps the
@@ -40,12 +50,6 @@ const SECURITY_HEADERS: Record<string, string> = {
 	'permissions-policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
 };
 
-// Bookkeeping kept on the stored copy and stripped before it is served.
-const STORED_AT = 'x-edge-stored-at';
-const FRESH_FOR = 'x-edge-fresh-for';
-/** The route's own browser Cache-Control, which the stored copy has to replace. */
-const BROWSER_CACHE = 'x-edge-browser-cache-control';
-
 /** Fresh and stale lifetimes, in seconds, from a CDN-Cache-Control value. */
 function edgePolicy(header: string | null): { fresh: number; stale: number } | null {
 	if (!header || /no-store|private/.test(header)) return null;
@@ -53,12 +57,6 @@ function edgePolicy(header: string | null): { fresh: number; stale: number } | n
 	if (!fresh) return null;
 	const stale = Number(/stale-while-revalidate=(\d+)/.exec(header)?.[1] ?? 0);
 	return { fresh, stale };
-}
-
-function withHeaders(response: Response, headers: Record<string, string>): Response {
-	const copy = new Response(response.body, response);
-	for (const [name, value] of Object.entries(headers)) copy.headers.set(name, value);
-	return copy;
 }
 
 /**
@@ -74,35 +72,6 @@ async function render(event: RequestEvent, resolve: Parameters<Handle>[0]['resol
 	const headers =
 		event.url.host === CANONICAL_HOST ? SECURITY_HEADERS : { ...SECURITY_HEADERS, 'x-robots-tag': 'noindex' };
 	return withHeaders(await resolve(event), headers);
-}
-
-/**
- * Query parameters that only ever identify where a click came from. No route
- * reads them, so they are dropped from the cache key: without this, every
- * shared link (?fbclid=..., ?utm_source=...) is a fresh miss and a full render.
- *
- * A deny-list, not an allow-list, on purpose. Forgetting a tracker here costs a
- * cache miss; forgetting a real parameter in an allow-list would serve one
- * page's cached copy for another (?page=2 getting page 1).
- */
-const TRACKING_PARAM = /^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|yclid|twclid|ttclid|li_fat_id|mc_cid|mc_eid|_ga|_gl|igshid|ref_src)$/i;
-
-/**
- * The cache key. Built from the RAW request URL, not event.url: for a
- * client-side navigation SvelteKit requests /article/1/__data.json and then
- * rewrites event.url to /article/1. Keying on event.url stored that JSON under
- * the page's key, so the next reader to open the page got raw JSON (and a
- * navigation could get HTML where it expected JSON). The raw URL keeps the two
- * apart, and lets navigations hit the cache too.
- */
-function cacheKey(request: Request): Request {
-	const url = new URL(request.url);
-	for (const name of [...url.searchParams.keys()]) {
-		if (TRACKING_PARAM.test(name)) url.searchParams.delete(name);
-	}
-	url.searchParams.sort();
-	url.hash = '';
-	return new Request(url.toString(), { method: 'GET' });
 }
 
 /** Puts a rendered response in the edge cache, if its route asked to be cached. */
@@ -122,18 +91,8 @@ async function store(cache: Cache, key: Request, response: Response): Promise<vo
 	await cache.put(key, stored);
 }
 
-/** A cached copy as the reader should get it: their Cache-Control back, bookkeeping removed. */
-function served(hit: Response, extra: Record<string, string>): Response {
-	const response = withHeaders(hit, {
-		'cache-control': hit.headers.get(BROWSER_CACHE) ?? 'no-cache',
-		...extra
-	});
-	for (const name of [BROWSER_CACHE, STORED_AT, FRESH_FOR]) response.headers.delete(name);
-	return response;
-}
-
 export const handle: Handle = async ({ event, resolve }) => {
-	const cache = (globalThis.caches as { default?: Cache } | undefined)?.default;
+	const cache = edgeCache();
 
 	// Local dev without the Workers runtime, and anything that is not a GET.
 	if (!cache || event.request.method !== 'GET') {
@@ -145,8 +104,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const hit = await cache.match(key);
 
 	if (hit) {
-		const ageSeconds = (Date.now() - Number(hit.headers.get(STORED_AT))) / 1000;
-		const stale = ageSeconds > Number(hit.headers.get(FRESH_FOR));
+		const { ageSeconds, stale } = freshness(hit);
 		if (stale) {
 			waitUntil(render(event, resolve).then((fresh) => store(cache, key, fresh)));
 		}

@@ -10,6 +10,14 @@ export default defineConfig({
 		tailwindcss(),
 		sveltekit({
 			adapter: adapter(),
+			// Put the stylesheet inside the HTML instead of linking it. SvelteKit
+			// lists the <link> after its script preloads, so the browser asked for
+			// the one render-blocking file last (evaluation 2026-10-23, "What it
+			// did worse" #3). ~50 KB raw / ~12 KB compressed today; the threshold
+			// sits above that so the whole layout stylesheet is inlined. Cost: a
+			// full page load carries the CSS instead of reusing a cached file -
+			// worth it for first paint, and client-side navigations don't reload it.
+			inlineStyleThreshold: 100_000,
 			csp: {
 				// Hashes rather than nonces: pages are cached at the edge, and a nonce
 				// baked into a cached page would be reused by every visitor.
