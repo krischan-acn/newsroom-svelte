@@ -14,7 +14,7 @@
 	import '@fontsource-variable/inter/wght.css';
 	import interLatin from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 	import '../app.css';
-	import { navigating } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { SITE_NAME } from '#lib/site.ts';
 	import TopNav from '#lib/components/common/TopNav.svelte';
 	import MainNav from '#lib/components/common/MainNav.svelte';
@@ -26,6 +26,14 @@
 <svelte:head>
 	<link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin="anonymous" />
 	<meta property="og:site_name" content={SITE_NAME} />
+	<!--
+	  The Next app's base metadata said index, follow on every page; a page could
+	  override it (search is noindex). Here a page overrides it by returning
+	  `robots` from its load. Error pages carry their own noindex.
+	-->
+	{#if page.status < 400}
+		<meta name="robots" content={page.data.robots ?? 'index, follow'} />
+	{/if}
 </svelte:head>
 
 {#if navigating.to}

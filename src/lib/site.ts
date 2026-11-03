@@ -21,9 +21,13 @@ export const SITE_DESCRIPTION = 'The top Asian News Network for 20 years and cou
  * fields that go in here (dates, image filenames) arrive from the API
  * unsanitised. Escaping `<` as \u003c is invisible to a JSON parser and closes
  * that hole for every field at once.
+ *
+ * The replacement is the six characters \u003c, hence the doubled backslash.
+ * A single one ('\u003c') is the `<` character itself and escapes nothing,
+ * which is exactly the bug the first version of this shipped with.
  */
 export function jsonLdScript(data: unknown): string {
-	const json = JSON.stringify(data).replace(/</g, '\u003c');
+	const json = JSON.stringify(data).replace(/</g, '\\u003c');
 	return `<script type="application/ld+json">${json}</script>`;
 }
 

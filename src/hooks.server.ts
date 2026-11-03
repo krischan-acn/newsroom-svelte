@@ -24,6 +24,7 @@
 //    every request reports MISS there, the Worker needs a custom domain.
 
 import type { RequestEvent } from '@sveltejs/kit';
+import { SITE_URL } from '#lib/site.ts';
 import type { Handle } from '@sveltejs/kit/hooks';
 // The adapter hands SvelteKit no `platform` object, so the Workers runtime is
 // reached directly: `caches` is a Workers global, and waitUntil keeps the
@@ -60,9 +61,48 @@ function withHeaders(response: Response, headers: Record<string, string>): Respo
 	return copy;
 }
 
+/**
+ * Only the canonical host may be indexed. A test deployment (workers.dev, a
+ * staging subdomain) serves the same pages, and without this a search engine
+ * could index those copies. The canonical link already points at SITE_URL;
+ * this keeps the copies out of the index entirely.
+ */
+const CANONICAL_HOST = new URL(SITE_URL).host;
+
 /** Renders the page and adds the security headers. */
 async function render(event: RequestEvent, resolve: Parameters<Handle>[0]['resolve']): Promise<Response> {
-	return withHeaders(await resolve(event), SECURITY_HEADERS);
+	const headers =
+		event.url.host === CANONICAL_HOST ? SECURITY_HEADERS : { ...SECURITY_HEADERS, 'x-robots-tag': 'noindex' };
+	return withHeaders(await resolve(event), headers);
+}
+
+/**
+ * Query parameters that only ever identify where a click came from. No route
+ * reads them, so they are dropped from the cache key: without this, every
+ * shared link (?fbclid=..., ?utm_source=...) is a fresh miss and a full render.
+ *
+ * A deny-list, not an allow-list, on purpose. Forgetting a tracker here costs a
+ * cache miss; forgetting a real parameter in an allow-list would serve one
+ * page's cached copy for another (?page=2 getting page 1).
+ */
+const TRACKING_PARAM = /^(utm_[a-z]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|yclid|twclid|ttclid|li_fat_id|mc_cid|mc_eid|_ga|_gl|igshid|ref_src)$/i;
+
+/**
+ * The cache key. Built from the RAW request URL, not event.url: for a
+ * client-side navigation SvelteKit requests /article/1/__data.json and then
+ * rewrites event.url to /article/1. Keying on event.url stored that JSON under
+ * the page's key, so the next reader to open the page got raw JSON (and a
+ * navigation could get HTML where it expected JSON). The raw URL keeps the two
+ * apart, and lets navigations hit the cache too.
+ */
+function cacheKey(request: Request): Request {
+	const url = new URL(request.url);
+	for (const name of [...url.searchParams.keys()]) {
+		if (TRACKING_PARAM.test(name)) url.searchParams.delete(name);
+	}
+	url.searchParams.sort();
+	url.hash = '';
+	return new Request(url.toString(), { method: 'GET' });
 }
 
 /** Puts a rendered response in the edge cache, if its route asked to be cached. */
@@ -101,7 +141,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Keyed on the URL alone: no page here varies by cookie or header.
-	const key = new Request(event.url.toString(), { method: 'GET' });
+	const key = cacheKey(event.request);
 	const hit = await cache.match(key);
 
 	if (hit) {

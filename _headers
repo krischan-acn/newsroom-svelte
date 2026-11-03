@@ -1,0 +1,11 @@
+# Headers for static files (/_app/*, /images/*, /icons/*, ...).
+#
+# Workers serves static assets without running the Worker, so the security
+# headers set in src/hooks.server.ts never reach them. These are the same ones,
+# minus the Content-Security-Policy, which only means something on HTML pages.
+# The Cloudflare adapter appends its own immutable caching for /_app/immutable/*.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
