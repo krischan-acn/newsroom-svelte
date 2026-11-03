@@ -51,6 +51,8 @@ Each Next file is one of:
 - **Every link built from API data goes through `safeUrl()`**, which drops `javascript:` and similar. React blocked those; Svelte does not. Affects event websites, company websites, contact emails and social links.
 - **Non-canonical hosts send `X-Robots-Tag: noindex`**, so test deployments are never indexed.
 - **Paging parameters are NaN-safe** (`?page=abc` → page 1) and `/news?limit` is clamped to the API's cap of 100. Next sent `Page=NaN` to the API and could never show "Next" above 100.
+- **Search, empty state:** bare `/search` (or only unrecognised `?sec=` values) shows 0 results. Next's total heuristic claimed 21 ("Showing 0 of 21 results", "Page 1 of 2" over an empty list).
+- **Search sidebar:** a second tick while the first is still loading builds on the first. Next rebuilt the URL from the not-yet-updated props and dropped the first tick. Applying a filter moves keyboard focus to the page (SvelteKit 3's `goto` has no keep-focus option); Next kept focus on the checkbox.
 - **A null event photo renders no image**, not a broken one (Next asserted it non-null).
 - **The share bar shares the canonical URL**, not whatever was in the address bar when it mounted. In the infinite feed, Next's could be the previous release's URL.
 - **The infinite scroll updates the tab title**, finds the next release among the latest 100 releases and the company archive (Next: the latest 20, in the browser), and switches the URL when a release scrolls into view rather than when it is fetched. These are the fixes the 2026-10-22 research note asked for.
